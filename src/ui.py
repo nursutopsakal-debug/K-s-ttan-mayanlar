@@ -144,15 +144,26 @@ class GuestCard:
             init_rect = init_surf.get_rect(center=(cx, cy))
             surface.blit(init_surf, init_rect)
 
-        # Name text
+        # Name text — truncate with ellipsis if too wide
         text_x = img_x + CARD_IMG_SIZE + 6
+        max_text_w = self.rect.right - text_x - 4
         font_name = pygame.font.SysFont("segoeui", 13, bold=True)
-        name_surf = font_name.render(self.name, True, TEXT_NAME)
+        display_name = self.name
+        name_surf = font_name.render(display_name, True, TEXT_NAME)
+        if name_surf.get_width() > max_text_w:
+            while len(display_name) > 1 and font_name.size(display_name + "…")[0] > max_text_w:
+                display_name = display_name[:-1]
+            name_surf = font_name.render(display_name + "…", True, TEXT_NAME)
         surface.blit(name_surf, (text_x, self.rect.y + 6))
 
-        # Type text (smaller)
+        # Type text (smaller) — also truncate
         font_type = pygame.font.SysFont("segoeui", 10)
-        type_surf = font_type.render(self.guest_type, True, TEXT_TYPE)
+        display_type = self.guest_type
+        type_surf = font_type.render(display_type, True, TEXT_TYPE)
+        if type_surf.get_width() > max_text_w:
+            while len(display_type) > 1 and font_type.size(display_type + "…")[0] > max_text_w:
+                display_type = display_type[:-1]
+            type_surf = font_type.render(display_type + "…", True, TEXT_TYPE)
         surface.blit(type_surf, (text_x, self.rect.y + 24))
 
         # Placed indicator
@@ -482,7 +493,7 @@ class Button:
 class GuestInfoTooltip:
     """Popup panel showing guest details (family, preferences, conflicts, tags)."""
 
-    WIDTH = 280
+    WIDTH = 320
     PADDING = 12
     LINE_H = 22
     HEADER_H = 36
@@ -502,7 +513,21 @@ class GuestInfoTooltip:
         self.card = card
         self.visible = True
         self._lines = self._build_lines(card)
-        h = self.HEADER_H + self.PADDING + len(self._lines) * self.LINE_H + self.PADDING
+
+        # Calculate height: fun_text may wrap to multiple lines
+        fun_text_extra = 0
+        font_wrap = pygame.font.SysFont("segoeui", 11)
+        max_text_w = self.WIDTH - self.PADDING * 2
+        self._fun_wrapped = []
+        for label, value, color in self._lines:
+            if label == "fun_text":
+                self._fun_wrapped = self._wrap_text(value, font_wrap, max_text_w)
+                fun_text_extra = len(self._fun_wrapped) * 16
+                break
+
+        normal_lines = sum(1 for l, v, c in self._lines if l != "fun_text")
+        h = self.HEADER_H + self.PADDING + normal_lines * self.LINE_H + fun_text_extra + self.PADDING + 8
+
         # Position: try right of mouse, clamp to screen
         self.x = min(mx + 12, screen_w - self.WIDTH - 8)
         self.y = min(my - 10, screen_h - h - 8)
@@ -513,30 +538,65 @@ class GuestInfoTooltip:
     def hide(self):
         self.visible = False
         self.card = None
+        self._fun_wrapped = []
+
+    @staticmethod
+    def _wrap_text(text, font, max_width):
+        """Word-wrap text to fit within max_width pixels."""
+        words = text.split()
+        lines = []
+        current = ""
+        for word in words:
+            test = f"{current} {word}".strip()
+            if font.size(test)[0] <= max_width:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines
 
     def _build_lines(self, card: GuestCard):
         """Build display lines from guest_data."""
         data = card.guest_data
         lines = []
 
-        family = data.get("family", "")
-        if family:
-            lines.append(("Family", family, SOFT_PINK))
+        guest_type = data.get("type", "")
+        if guest_type:
+            display = guest_type.replace("_", " ").title()
+            lines.append(("Type", display, SOFT_PINK))
 
-        if data.get("is_vip"):
+        groups = data.get("groups", [])
+        if groups:
+            lines.append(("Group", ", ".join(g.replace("_", " ").title() for g in groups), TEXT_TYPE))
+
+        if data.get("type") == "vip" or "vip" in groups:
             lines.append(("Status", "★ VIP", GOLD))
 
-        tags = data.get("tags", [])
-        if tags:
-            lines.append(("Tags", ", ".join(tags), TEXT_TYPE))
+        special = data.get("special_tags", [])
+        if special:
+            tag_map = {"bride_vip": "Bride VIP", "groom_vip": "Groom VIP",
+                       "near_exit": "Near Exit", "near_dance_floor": "Near Dance Floor"}
+            labels = [tag_map.get(s, s) for s in special]
+            lines.append(("Prefers", ", ".join(labels), SOFT_YELLOW))
 
-        preferred = data.get("preferred_with", [])
-        if preferred:
-            lines.append(("Likes", ", ".join(preferred), SOFT_GREEN))
+        likes = data.get("likes", [])
+        if likes:
+            lines.append(("Likes", ", ".join(likes), SOFT_GREEN))
+
+        dislikes = data.get("dislikes", [])
+        if dislikes:
+            lines.append(("Dislikes", ", ".join(dislikes), SOFT_RED))
 
         cannot = data.get("cannot_sit_with", [])
         if cannot:
-            lines.append(("Conflicts", ", ".join(cannot), SOFT_RED))
+            lines.append(("CANNOT", ", ".join(cannot), SOFT_RED))
+
+        fun = data.get("fun_text", "")
+        if fun:
+            lines.append(("fun_text", fun, TEXT_NAME))
 
         return lines
 
@@ -570,14 +630,25 @@ class GuestInfoTooltip:
         # Detail lines
         font_label = pygame.font.SysFont("segoeui", 12, bold=True)
         font_value = pygame.font.SysFont("segoeui", 13)
+        font_fun = pygame.font.SysFont("segoeui", 11)
         y = self.y + self.HEADER_H + self.PADDING
 
         for label, value, color in self._lines:
-            lbl = font_label.render(f"{label}:", True, TEXT_DIM)
-            surface.blit(lbl, (self.x + self.PADDING, y))
-            val = font_value.render(value, True, color)
-            surface.blit(val, (self.x + self.PADDING + 80, y))
-            y += self.LINE_H
+            if label == "fun_text":
+                # Draw wrapped fun text with italic feel
+                pygame.draw.line(surface, self.BORDER_COLOR,
+                                 (self.x + self.PADDING, y), (self.x + w - self.PADDING, y), 1)
+                y += 4
+                for wline in self._fun_wrapped:
+                    line_surf = font_fun.render(wline, True, color)
+                    surface.blit(line_surf, (self.x + self.PADDING, y))
+                    y += 16
+            else:
+                lbl = font_label.render(f"{label}:", True, TEXT_DIM)
+                surface.blit(lbl, (self.x + self.PADDING, y))
+                val = font_value.render(value, True, color)
+                surface.blit(val, (self.x + self.PADDING + 80, y))
+                y += self.LINE_H
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """Close tooltip on any click outside it. Returns True if consumed."""

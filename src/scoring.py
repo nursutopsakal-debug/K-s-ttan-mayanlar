@@ -95,7 +95,17 @@ def evaluate_layout(player_layout, guests_data, level_data):
 
 def _get_guests_dict(guests_data):
     if isinstance(guests_data, list):
-        return {g["name"]: g for g in guests_data}
+        # Build id-to-name map for resolving references
+        id_to_name = {g.get("id", g["name"]): g["name"] for g in guests_data}
+        result = {}
+        for g in guests_data:
+            resolved = dict(g)
+            # Resolve id-based references to names
+            for field in ("likes", "dislikes", "must_sit_with", "cannot_sit_with"):
+                if field in resolved:
+                    resolved[field] = [id_to_name.get(ref, ref) for ref in resolved[field]]
+            result[g["name"]] = resolved
+        return result
     return guests_data
 
 

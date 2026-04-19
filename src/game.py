@@ -25,7 +25,8 @@ from src.ui import (
 # ─── Constants ─────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-LEVEL_TIME = 120  # seconds per level (2 minutes)
+SOUND_DIR = os.path.join(BASE_DIR, "assets", "sounds")
+LEVEL_TIME = 90  # seconds per level
 PENALTY_SECONDS = 3
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,21 +37,17 @@ def _load_json(filename):
         return json.load(f)
 
 
-def _tag_to_type(tags):
-    """Convert Dev1 tags list to a short display string."""
+def _type_display(guest_type):
+    """Convert guest type field to a short display string."""
     mapping = {
-        "social": "Social",
-        "funny": "Entertainer",
-        "quiet": "Quiet",
-        "family_oriented": "Family",
-        "dramatic": "Dramatic",
-        "rival": "Rival",
-        "ex_partner": "Ex-Partner",
+        "family_bride": "Bride Family",
+        "family_groom": "Groom Family",
+        "friend": "Friend",
+        "ex": "Ex-Partner",
+        "vip": "VIP",
+        "coworker": "Coworker",
     }
-    for t in tags:
-        if t in mapping:
-            return mapping[t]
-    return "Guest"
+    return mapping.get(guest_type, guest_type.replace("_", " ").title() if guest_type else "Guest")
 
 
 class GameScreen(Enum):
@@ -98,6 +95,28 @@ class Game:
         self._btn_intro_start = Button(SCREEN_W // 2 - 100, 640, 200, 50, "START", (140, 45, 70), GOLD)
         self._btn_menu = Button(SCREEN_W // 2 - 100, 580, 200, 50, "MAIN MENU", (140, 45, 70), GOLD)
 
+        # ─── Sound ─────────────────────────────────────────────────────────
+        pygame.mixer.init()
+        self._snd_bg = self._load_sound("gameSound.mpeg")
+        self._snd_win = self._load_sound("win.mp3.mpeg")
+        self._snd_lose = self._load_sound("fail.mpeg")
+        self._snd_cry = self._load_sound("crying.mpeg")
+        self._bg_playing = False
+
+    @staticmethod
+    def _load_sound(filename):
+        path = os.path.join(SOUND_DIR, filename)
+        if os.path.exists(path):
+            try:
+                return pygame.mixer.Sound(path)
+            except Exception:
+                return None
+        return None
+
+    def _stop_all_sounds(self):
+        pygame.mixer.stop()
+        self._bg_playing = False
+
     # ─── Level Setup ───────────────────────────────────────────────────────
 
     def _start_level(self):
@@ -108,11 +127,10 @@ class Game:
         # Build guest dicts for GuestPanel
         guests_for_panel = []
         for i, g in enumerate(guests_raw):
-            gid = g["name"].lower().replace(" ", "_").replace(".", "")
             guests_for_panel.append({
-                "id": gid,
+                "id": g.get("id", f"g{i+1}"),
                 "name": g["name"],
-                "type": _tag_to_type(g.get("tags", [])),
+                "type": _type_display(g.get("type", "")),
                 "guest_data": g,
             })
 
@@ -124,6 +142,11 @@ class Game:
         self.level_scores = None
         self.tooltip.hide()
         self.current_screen = GameScreen.GAMEPLAY
+
+        # Start background music
+        self._stop_all_sounds()
+        if self._snd_bg:
+            self._snd_bg.play(loops=-1)
 
     def _get_level_data(self):
         level_key = f"level_{self.current_level}"
@@ -166,21 +189,33 @@ class Game:
     def _check_violations_on_drop(self, guest_name, table_id):
         """Check if dropping a guest causes a hard constraint violation → penalty."""
         guests_data = self._get_guests_data()
-        guests_dict = {g["name"]: g for g in guests_data}
-        guest = guests_dict.get(guest_name)
+        guests_by_name = {g["name"]: g for g in guests_data}
+        guests_by_id = {g["id"]: g for g in guests_data}
+        guest = guests_by_name.get(guest_name)
         if not guest:
             return False
 
-        cannot = guest.get("cannot_sit_with", [])
+        # Resolve cannot_sit_with ids to names
+        cannot_ids = guest.get("cannot_sit_with", [])
+        cannot_names = set()
+        for cid in cannot_ids:
+            other_g = guests_by_id.get(cid)
+            if other_g:
+                cannot_names.add(other_g["name"])
+
         # Check existing guests at this table
         for si in range(5):
             other = self.table_seats.get((table_id, si))
-            if other and other in cannot:
+            if not other:
+                continue
+            if other in cannot_names:
                 return True
             # Also check the other direction
-            other_guest = guests_dict.get(other)
-            if other_guest and guest_name in other_guest.get("cannot_sit_with", []):
-                return True
+            other_guest = guests_by_name.get(other)
+            if other_guest:
+                other_cannot_ids = other_guest.get("cannot_sit_with", [])
+                if guest.get("id") in other_cannot_ids:
+                    return True
         return False
 
     # ─── Event Handling ────────────────────────────────────────────────────
@@ -279,11 +314,13 @@ class Game:
 
     def _handle_win_event(self, event):
         if self._btn_menu.handle_event(event):
+            self._stop_all_sounds()
             self.current_screen = GameScreen.MENU
 
     def _handle_lose_event(self, event):
         if self._lose_phase >= 2:
             if self._btn_retry.handle_event(event):
+                self._stop_all_sounds()
                 self._lose_phase = 0
                 self._lose_fade_alpha = 0
                 self._lose_timer = 0
@@ -314,12 +351,18 @@ class Game:
 
     def _finish_level(self):
         """Level completed successfully."""
+        self._stop_all_sounds()
+        if self._snd_win:
+            self._snd_win.play()
         self.level_scores = self._evaluate_layout()
         self.level_total_scores.append(self.level_scores.get("total_score", 0))
         self.current_screen = GameScreen.LEVEL_RESULT
 
     def _start_lose(self):
         """Transition to lose screen."""
+        self._stop_all_sounds()
+        if self._snd_lose:
+            self._snd_lose.play()
         self._lose_fade_alpha = 0
         self._lose_phase = 0
         self._lose_timer = 0
@@ -334,10 +377,13 @@ class Game:
                 self._lose_phase = 1
                 self._lose_timer = 0
         elif self._lose_phase == 1:
-            # Show Fail1 for 3 seconds
-            if self._lose_timer > 3.0:
+            # Show Fail1 for 2 seconds
+            if self._lose_timer > 2.0:
                 self._lose_phase = 2
                 self._lose_timer = 0
+                # Play crying sound when bride appears
+                if self._snd_cry:
+                    self._snd_cry.play(loops=-1)
 
     # ─── Render ────────────────────────────────────────────────────────────
 
@@ -367,15 +413,17 @@ class Game:
         overlay.fill((0, 0, 0, 140))
         self.screen.blit(overlay, (0, 0))
 
-        # Title — black with gold outline effect
+        # Title — gold with dark shadow for contrast
         font_big = pygame.font.SysFont("segoeui", 48, bold=True)
-        title = font_big.render("Seat the Drama", True, BLACK)
+        title_shadow = font_big.render("Seat the Drama", True, (30, 10, 20))
+        title = font_big.render("Seat the Drama", True, GOLD)
         title_rect = title.get_rect(center=(SCREEN_W // 2, 200))
+        self.screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
         self.screen.blit(title, title_rect)
 
         # Subtitle
         font_sub = pygame.font.SysFont("segoeui", 20)
-        sub = font_sub.render("Arrange the guests. Prevent the chaos. Save the wedding.", True, BLACK)
+        sub = font_sub.render("Arrange the guests. Prevent the chaos. Save the wedding.", True, WHITE)
         sub_rect = sub.get_rect(center=(SCREEN_W // 2, 260))
         self.screen.blit(sub, sub_rect)
 
@@ -385,15 +433,15 @@ class Game:
         hearts_rect = hearts.get_rect(center=(SCREEN_W // 2, 310))
         self.screen.blit(hearts, hearts_rect)
 
-        # Instructions — black text
-        font_instr = pygame.font.SysFont("segoeui", 14)
+        # Instructions — light text for readability
+        font_instr = pygame.font.SysFont("segoeui", 15)
         instructions = [
             "Drag guests from the panel to table seats",
             "Avoid seating enemies together (-3s penalty!)",
             "Seat all guests before time runs out",
         ]
         for i, line in enumerate(instructions):
-            surf = font_instr.render(line, True, BLACK)
+            surf = font_instr.render(line, True, TEXT_NAME)
             rect = surf.get_rect(center=(SCREEN_W // 2, 380 + i * 28))
             self.screen.blit(surf, rect)
 
@@ -681,21 +729,6 @@ class Game:
             else:
                 self.screen.fill(BLACK)
 
-            # "TIME'S UP" text
-            overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 80))
-            self.screen.blit(overlay, (0, 0))
-
-            font_big = pygame.font.SysFont("segoeui", 52, bold=True)
-            text = font_big.render("TIME'S UP!", True, SOFT_RED)
-            text_rect = text.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2 - 40))
-            self.screen.blit(text, text_rect)
-
-            font_sub = pygame.font.SysFont("segoeui", 20)
-            sub = font_sub.render("The wedding is ruined...", True, SOFT_PINK)
-            sub_rect = sub.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2 + 20))
-            self.screen.blit(sub, sub_rect)
-
         elif self._lose_phase >= 2:
             # Show Fail2 as animated GIF (or Fail1 fallback)
             frame = self.hall.images.get_gif_frame("Fail2.gif", dt_ms=16)
@@ -705,15 +738,6 @@ class Game:
                 self.screen.blit(frame, (0, 0))
             else:
                 self.screen.fill(BLACK)
-
-            overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 100))
-            self.screen.blit(overlay, (0, 0))
-
-            font_big = pygame.font.SysFont("segoeui", 40, bold=True)
-            text = font_big.render("The bride is crying...", True, SOFT_PINK)
-            text_rect = text.get_rect(center=(SCREEN_W // 2, 80))
-            self.screen.blit(text, text_rect)
 
             # Retry button
             self._btn_retry.rect.center = (SCREEN_W // 2, SCREEN_H - 80)

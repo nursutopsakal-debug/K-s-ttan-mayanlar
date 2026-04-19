@@ -69,25 +69,25 @@ ZONES = {
 # ─── Table Layouts Per Level ───────────────────────────────────────────────────
 LEVEL_TABLE_LAYOUTS = {
     1: [  # 3 tables
-        (300, 190, "vip_bride"),
-        (700, 190, "vip_groom"),
+        (200, 260, "vip_bride"),
+        (700, 260, "vip_groom"),
         (500, 400, "general"),
     ],
-    2: [  # 5 tables
-        (250, 180, "vip_bride"),
-        (700, 180, "vip_groom"),
-        (150, 400, "general"),
-        (475, 400, "general"),
-        (800, 400, "general"),
+    2: [  # 5 tables — general row at y=450 to clear VIP tables
+        (200, 260, "vip_bride"),
+        (700, 260, "vip_groom"),
+        (150, 450, "general"),
+        (475, 450, "general"),
+        (800, 450, "general"),
     ],
-    3: [  # 7 tables — all x < 960 to stay clear of guest panel
-        (250, 170, "vip_bride"),
-        (650, 170, "vip_groom"),
-        (120, 360, "general"),
-        (370, 360, "general"),
-        (620, 360, "general"),
-        (870, 360, "general"),
-        (490, 530, "general"),
+    3: [  # 7 tables — min 190px between all centers
+        (200, 260, "vip_bride"),
+        (700, 260, "vip_groom"),
+        (120, 450, "general"),
+        (370, 450, "general"),
+        (620, 450, "general"),
+        (870, 450, "general"),
+        (490, 600, "general"),
     ],
 }
 

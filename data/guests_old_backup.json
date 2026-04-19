@@ -1,0 +1,568 @@
+{
+  "level_1": [
+    {
+      "name": "Emma",
+      "family": "Smith",
+      "is_vip": false,
+      "preferred_with": ["John", "Sophia"],
+      "cannot_sit_with": ["Lucas"],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "John",
+      "family": "Smith",
+      "is_vip": false,
+      "preferred_with": ["Emma"],
+      "cannot_sit_with": ["Liam"],
+      "tags": ["social"]
+    },
+    {
+      "name": "Sophia",
+      "family": "Johnson",
+      "is_vip": false,
+      "preferred_with": ["Emma", "Olivia"],
+      "cannot_sit_with": [],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "Liam",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Olivia"],
+      "cannot_sit_with": ["John"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Olivia",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Liam", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Noah",
+      "family": "Davis",
+      "is_vip": false,
+      "preferred_with": ["Ava"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Ava",
+      "family": "Davis",
+      "is_vip": false,
+      "preferred_with": ["Noah"],
+      "cannot_sit_with": [],
+      "tags": ["funny"]
+    },
+    {
+      "name": "Lucas",
+      "family": "Wilson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Emma"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Isabella",
+      "family": "Miller",
+      "is_vip": false,
+      "preferred_with": ["Emma", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Mason",
+      "family": "Taylor",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Charlotte",
+      "family": "Anderson",
+      "is_vip": false,
+      "preferred_with": ["Isabella"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Benjamin",
+      "family": "Thomas",
+      "is_vip": false,
+      "preferred_with": ["Mason"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Mia",
+      "family": "Jackson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Ethan",
+      "family": "White",
+      "is_vip": false,
+      "preferred_with": ["Mia"],
+      "cannot_sit_with": [],
+      "tags": ["funny"]
+    },
+    {
+      "name": "Grace",
+      "family": "Harris",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    }
+  ],
+  "level_2": [
+    {
+      "name": "Emma",
+      "family": "Smith",
+      "is_vip": true,
+      "preferred_with": ["John", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "John",
+      "family": "Smith",
+      "is_vip": false,
+      "preferred_with": ["Emma"],
+      "cannot_sit_with": ["Sarah"],
+      "tags": ["social"]
+    },
+    {
+      "name": "Sophia",
+      "family": "Johnson",
+      "is_vip": false,
+      "preferred_with": ["Emma", "Olivia"],
+      "cannot_sit_with": [],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "Liam",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Olivia"],
+      "cannot_sit_with": ["John"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Olivia",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Liam", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Noah",
+      "family": "Davis",
+      "is_vip": false,
+      "preferred_with": ["Ava"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Ava",
+      "family": "Davis",
+      "is_vip": false,
+      "preferred_with": ["Noah"],
+      "cannot_sit_with": [],
+      "tags": ["funny"]
+    },
+    {
+      "name": "Lucas",
+      "family": "Wilson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Emma"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Isabella",
+      "family": "Miller",
+      "is_vip": true,
+      "preferred_with": ["Emma", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Mason",
+      "family": "Taylor",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Charlotte",
+      "family": "Anderson",
+      "is_vip": false,
+      "preferred_with": ["Isabella"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Benjamin",
+      "family": "Thomas",
+      "is_vip": false,
+      "preferred_with": ["Mason"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Mia",
+      "family": "Jackson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Ethan"],
+      "tags": ["social"]
+    },
+    {
+      "name": "Ethan",
+      "family": "White",
+      "is_vip": false,
+      "preferred_with": ["Alexander"],
+      "cannot_sit_with": ["Mia"],
+      "tags": ["funny", "ex_partner"]
+    },
+    {
+      "name": "Grace",
+      "family": "Harris",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Alexander",
+      "family": "Clark",
+      "is_vip": false,
+      "preferred_with": ["Ethan"],
+      "cannot_sit_with": [],
+      "tags": ["social", "ex_partner"]
+    },
+    {
+      "name": "Sarah",
+      "family": "Lewis",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["John"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Michael",
+      "family": "Walker",
+      "is_vip": false,
+      "preferred_with": ["David"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "David",
+      "family": "Hall",
+      "is_vip": false,
+      "preferred_with": ["Michael"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Sophie",
+      "family": "Allen",
+      "is_vip": false,
+      "preferred_with": ["Grace"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "James",
+      "family": "Young",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    }
+  ],
+  "level_3": [
+    {
+      "name": "Emma",
+      "family": "Smith",
+      "is_vip": true,
+      "preferred_with": ["John", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "John",
+      "family": "Smith",
+      "is_vip": false,
+      "preferred_with": ["Emma"],
+      "cannot_sit_with": ["Sarah"],
+      "tags": ["social"]
+    },
+    {
+      "name": "Sophia",
+      "family": "Smith",
+      "is_vip": false,
+      "preferred_with": ["Emma", "Olivia"],
+      "cannot_sit_with": [],
+      "tags": ["social", "funny"]
+    },
+    {
+      "name": "Liam",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Olivia"],
+      "cannot_sit_with": ["John"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Olivia",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Liam", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Noah",
+      "family": "Brown",
+      "is_vip": false,
+      "preferred_with": ["Ava"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Ava",
+      "family": "Davis",
+      "is_vip": false,
+      "preferred_with": ["Noah"],
+      "cannot_sit_with": [],
+      "tags": ["funny"]
+    },
+    {
+      "name": "Lucas",
+      "family": "Wilson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Emma"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Isabella",
+      "family": "Miller",
+      "is_vip": true,
+      "preferred_with": ["Emma", "Sophia"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Mason",
+      "family": "Miller",
+      "is_vip": false,
+      "preferred_with": ["Isabella"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Charlotte",
+      "family": "Miller",
+      "is_vip": false,
+      "preferred_with": ["Isabella"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Benjamin",
+      "family": "Thomas",
+      "is_vip": false,
+      "preferred_with": ["Mason"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Mia",
+      "family": "Jackson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Ethan"],
+      "tags": ["social", "dramatic"]
+    },
+    {
+      "name": "Ethan",
+      "family": "White",
+      "is_vip": false,
+      "preferred_with": ["Alexander"],
+      "cannot_sit_with": ["Mia"],
+      "tags": ["funny", "ex_partner"]
+    },
+    {
+      "name": "Grace",
+      "family": "Harris",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Alexander",
+      "family": "Clark",
+      "is_vip": false,
+      "preferred_with": ["Ethan"],
+      "cannot_sit_with": ["Mia"],
+      "tags": ["social", "ex_partner"]
+    },
+    {
+      "name": "Sarah",
+      "family": "Lewis",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["John"],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Michael",
+      "family": "Walker",
+      "is_vip": false,
+      "preferred_with": ["David"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "David",
+      "family": "Hall",
+      "is_vip": false,
+      "preferred_with": ["Michael"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Sophie",
+      "family": "Allen",
+      "is_vip": false,
+      "preferred_with": ["Grace"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "James",
+      "family": "Young",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Rachel",
+      "family": "Hernandez",
+      "is_vip": false,
+      "preferred_with": ["Michael"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Edward",
+      "family": "King",
+      "is_vip": false,
+      "preferred_with": ["Rachel"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Victoria",
+      "family": "Wright",
+      "is_vip": true,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Henry",
+      "family": "Lopez",
+      "is_vip": false,
+      "preferred_with": ["Victoria"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    },
+    {
+      "name": "Margaret",
+      "family": "Robinson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Henry"],
+      "tags": ["dramatic", "rival"]
+    },
+    {
+      "name": "Christopher",
+      "family": "Robinson",
+      "is_vip": false,
+      "preferred_with": ["Margaret"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Louise",
+      "family": "Rodriguez",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "William",
+      "family": "Martinez",
+      "is_vip": false,
+      "preferred_with": ["Louise"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Rebecca",
+      "family": "Davis",
+      "is_vip": true,
+      "preferred_with": ["David"],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Thomas",
+      "family": "Garcia",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": ["Christopher"],
+      "tags": ["dramatic", "rival"]
+    },
+    {
+      "name": "Angela",
+      "family": "Wilson",
+      "is_vip": false,
+      "preferred_with": ["Sophie"],
+      "cannot_sit_with": [],
+      "tags": ["quiet", "family_oriented"]
+    },
+    {
+      "name": "Kenneth",
+      "family": "Anderson",
+      "is_vip": false,
+      "preferred_with": [],
+      "cannot_sit_with": [],
+      "tags": ["social"]
+    },
+    {
+      "name": "Dorothy",
+      "family": "Taylor",
+      "is_vip": false,
+      "preferred_with": ["Kenneth"],
+      "cannot_sit_with": [],
+      "tags": ["quiet"]
+    }
+  ]
+}
