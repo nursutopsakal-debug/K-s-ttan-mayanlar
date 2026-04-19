@@ -1,11 +1,19 @@
 import pygame
 import sys
+import json
+from pathlib import Path
 
 # Window settings
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-TITLE = "Seat the Drama — Wedding Chaos Optimizer"
+TITLE = "Seat the Drama \u2014 Wedding Chaos Optimizer"
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def load_json(relative_path):
+    with open(BASE_DIR / relative_path, "r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def main():
@@ -14,8 +22,8 @@ def main():
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
 
-    # TODO: Initialize game state (Dev 3 - game_logic.py)
-    # TODO: Initialize audio (Dev 3 - audio.py)
+    from src.game import Game
+    game = Game(screen)
 
     running = True
     while running:
@@ -24,13 +32,10 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # TODO: Pass events to UI handler (Dev 2 - ui.py)
+            game.handle_event(event)
 
-        # TODO: Update game logic (Dev 3 - game_logic.py)
-
-        screen.fill((30, 20, 40))
-        # TODO: Render current screen (Dev 2 - renderer.py)
-
+        game.update(dt)
+        game.render()
         pygame.display.flip()
 
     pygame.quit()

@@ -1,0 +1,59 @@
+{
+  "level_1": {
+    "level_name": "Easy Reception",
+    "difficulty": "easy",
+    "table_count": 3,
+    "seats_per_table": 5,
+    "vip_tables": [],
+    "description": "A small wedding with 15 guests, simple conflicts, and easy seating.",
+    "active_rules": ["preferred_seating", "family_grouping", "basic_constraints"],
+    "score_weights": {
+      "happiness": 30,
+      "entertainment": 10,
+      "family_balance": 25,
+      "vip_satisfaction": 0,
+      "hidden_bonuses": 5,
+      "tension": -15,
+      "gossip": -5,
+      "major_crisis": -50
+    }
+  },
+  "level_2": {
+    "level_name": "Medium Reception",
+    "difficulty": "medium",
+    "table_count": 5,
+    "seats_per_table": 5,
+    "vip_tables": ["Table 1", "Table 5"],
+    "description": "A medium-sized wedding with 25 guests, VIP rules, and ex-pair drama.",
+    "active_rules": ["preferred_seating", "family_grouping", "vip_placement", "conflict_avoidance", "ex_pairs", "entertainment_mix"],
+    "score_weights": {
+      "happiness": 25,
+      "entertainment": 15,
+      "family_balance": 20,
+      "vip_satisfaction": 15,
+      "hidden_bonuses": 5,
+      "tension": -15,
+      "gossip": -10,
+      "major_crisis": -50
+    }
+  },
+  "level_3": {
+    "level_name": "Grand Wedding",
+    "difficulty": "hard",
+    "table_count": 7,
+    "seats_per_table": 5,
+    "vip_tables": ["Table 1", "Table 3", "Table 7"],
+    "description": "A large wedding with 35 guests, many families, rivalries, and full mechanics.",
+    "active_rules": ["preferred_seating", "family_grouping", "vip_placement", "conflict_avoidance", "ex_pairs", "rivals", "entertainment_mix", "drama_prevention", "complete_bonuses"],
+    "score_weights": {
+      "happiness": 20,
+      "entertainment": 15,
+      "family_balance": 20,
+      "vip_satisfaction": 15,
+      "hidden_bonuses": 10,
+      "tension": -15,
+      "gossip": -10,
+      "major_crisis": -50
+    }
+  }
+}
