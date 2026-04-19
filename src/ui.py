@@ -37,7 +37,7 @@ GUEST_IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets
 # (index-based so it works with any guest names from data files)
 GUEST_IMAGE_FILES = [f"g{i}.png" for i in range(1, 16)]
 
-CARD_WIDTH = 130
+CARD_WIDTH = 225
 CARD_HEIGHT = 50
 CARD_IMG_SIZE = 36
 
@@ -507,6 +507,11 @@ class GuestInfoTooltip:
         self.card = None  # the GuestCard being inspected
         self.x = 0
         self.y = 0
+        self._id_to_name = {}  # id -> name mapping for resolving references
+
+    def set_id_map(self, id_to_name: dict):
+        """Set the id->name mapping for resolving guest references."""
+        self._id_to_name = id_to_name
 
     def show(self, card: GuestCard, mx: int, my: int, screen_w: int = 1280, screen_h: int = 720):
         """Open tooltip for the given card near the mouse position."""
@@ -584,15 +589,18 @@ class GuestInfoTooltip:
 
         likes = data.get("likes", [])
         if likes:
-            lines.append(("Likes", ", ".join(likes), SOFT_GREEN))
+            names = [self._id_to_name.get(x, x) for x in likes]
+            lines.append(("Likes", ", ".join(names), SOFT_GREEN))
 
         dislikes = data.get("dislikes", [])
         if dislikes:
-            lines.append(("Dislikes", ", ".join(dislikes), SOFT_RED))
+            names = [self._id_to_name.get(x, x) for x in dislikes]
+            lines.append(("Dislikes", ", ".join(names), SOFT_RED))
 
         cannot = data.get("cannot_sit_with", [])
         if cannot:
-            lines.append(("CANNOT", ", ".join(cannot), SOFT_RED))
+            names = [self._id_to_name.get(x, x) for x in cannot]
+            lines.append(("CANNOT", ", ".join(names), SOFT_RED))
 
         fun = data.get("fun_text", "")
         if fun:

@@ -55,6 +55,7 @@ class GameScreen(Enum):
     LEVEL_INTRO = auto()
     GAMEPLAY = auto()
     LEVEL_RESULT = auto()
+    OPTIMAL_VIEW = auto()
     WIN = auto()
     LOSE = auto()
 
@@ -94,6 +95,13 @@ class Game:
         self._btn_retry = Button(SCREEN_W // 2 - 100, 580, 200, 50, "TRY AGAIN", (140, 45, 70), GOLD)
         self._btn_intro_start = Button(SCREEN_W // 2 - 100, 640, 200, 50, "START", (140, 45, 70), GOLD)
         self._btn_menu = Button(SCREEN_W // 2 - 100, 580, 200, 50, "MAIN MENU", (140, 45, 70), GOLD)
+        self._btn_optimal = Button(SCREEN_W // 2 - 130, 570, 260, 44, "SEE OPTIMAL SOLUTION", (60, 100, 80), GOLD)
+        self._btn_back_result = Button(SCREEN_W // 2 - 100, 650, 200, 44, "BACK", (140, 45, 70), GOLD)
+
+        # Optimal solution state
+        self._optimal_layout = None
+        self._optimal_scores = None
+        self._pre_optimal_screen = GameScreen.LEVEL_RESULT
 
         # ─── Sound ─────────────────────────────────────────────────────────
         pygame.mixer.init()
@@ -141,6 +149,10 @@ class Game:
         self.table_info = []
         self.level_scores = None
         self.tooltip.hide()
+
+        # Build id->name map for tooltip
+        id_to_name = {g.get("id", f"g{i+1}"): g["name"] for i, g in enumerate(guests_raw)}
+        self.tooltip.set_id_map(id_to_name)
         self.current_screen = GameScreen.GAMEPLAY
 
         # Start background music
@@ -229,6 +241,8 @@ class Game:
             self._handle_gameplay_event(event)
         elif self.current_screen == GameScreen.LEVEL_RESULT:
             self._handle_result_event(event)
+        elif self.current_screen == GameScreen.OPTIMAL_VIEW:
+            self._handle_optimal_event(event)
         elif self.current_screen == GameScreen.WIN:
             self._handle_win_event(event)
         elif self.current_screen == GameScreen.LOSE:
@@ -264,33 +278,42 @@ class Game:
 
     def _process_drop(self, dropped: GuestCard):
         """Try to seat a dropped card at the nearest empty seat."""
-        placed = False
         layout = LEVEL_TABLE_LAYOUTS.get(self.current_level, LEVEL_TABLE_LAYOUTS[1])
+
+        # Find the nearest empty seat across all tables
+        best_dist = float("inf")
+        best_tid = None
+        best_si = None
+        best_sx = 0
+        best_sy = 0
 
         for tid, (tx, ty, zone) in enumerate(layout):
             for si in range(5):
+                if (tid, si) in self.table_seats:
+                    continue
                 angle = (2 * math.pi / 5) * si - math.pi / 2
                 sx = tx + int(74 * math.cos(angle))
                 sy = ty + int(74 * math.sin(angle))
                 dist = math.sqrt((dropped.rect.centerx - sx) ** 2 + (dropped.rect.centery - sy) ** 2)
-                if dist < 30 and (tid, si) not in self.table_seats:
-                    # Check for violations
-                    has_violation = self._check_violations_on_drop(dropped.name, tid)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_tid = tid
+                    best_si = si
+                    best_sx = sx
+                    best_sy = sy
 
-                    dropped.snap_to_seat(sx, sy, tid, si)
-                    self.table_seats[(tid, si)] = dropped.name
-                    placed = True
+        # Snap if within reasonable range (120px from nearest seat)
+        if best_tid is not None and best_dist < 120:
+            has_violation = self._check_violations_on_drop(dropped.name, best_tid)
 
-                    if has_violation and self.timer:
-                        self.timer.penalize(PENALTY_SECONDS)
+            dropped.snap_to_seat(best_sx, best_sy, best_tid, best_si)
+            self.table_seats[(best_tid, best_si)] = dropped.name
 
-                    # Update score
-                    self._update_score()
-                    break
-            if placed:
-                break
+            if has_violation and self.timer:
+                self.timer.penalize(PENALTY_SECONDS)
 
-        if not placed:
+            self._update_score()
+        else:
             # If was previously placed, remove from table
             if dropped.placed_table is not None:
                 self.table_seats.pop((dropped.placed_table, dropped.placed_seat), None)
@@ -304,6 +327,11 @@ class Game:
             self.score_display.update(int(scores.get("total_score", 0)))
 
     def _handle_result_event(self, event):
+        if self._btn_optimal.handle_event(event):
+            self._pre_optimal_screen = GameScreen.LEVEL_RESULT
+            self._compute_optimal()
+            self.current_screen = GameScreen.OPTIMAL_VIEW
+            return
         if self.current_level < self.max_levels:
             if self._btn_next.handle_event(event):
                 self.current_level += 1
@@ -312,6 +340,23 @@ class Game:
             if self._btn_next.handle_event(event):
                 self.current_screen = GameScreen.WIN
 
+    def _handle_optimal_event(self, event):
+        if self._btn_back_result.handle_event(event):
+            self.current_screen = self._pre_optimal_screen
+
+    def _compute_optimal(self):
+        """Run optimizer and evaluate the result."""
+        try:
+            from src.optimizer import solve
+            from src.scoring import evaluate
+            level_data = self._get_level_data()
+            guests_data = self._get_guests_data()
+            self._optimal_layout = solve(level_data, guests_data, self.current_level)
+            self._optimal_scores = evaluate(self._optimal_layout, level_data, guests_data)
+        except Exception as e:
+            self._optimal_layout = {}
+            self._optimal_scores = {"total_score": 0, "penalties": [str(e)]}
+
     def _handle_win_event(self, event):
         if self._btn_menu.handle_event(event):
             self._stop_all_sounds()
@@ -319,6 +364,11 @@ class Game:
 
     def _handle_lose_event(self, event):
         if self._lose_phase >= 2:
+            if self._btn_optimal.handle_event(event):
+                self._pre_optimal_screen = GameScreen.LOSE
+                self._compute_optimal()
+                self.current_screen = GameScreen.OPTIMAL_VIEW
+                return
             if self._btn_retry.handle_event(event):
                 self._stop_all_sounds()
                 self._lose_phase = 0
@@ -396,6 +446,8 @@ class Game:
             self._render_gameplay()
         elif self.current_screen == GameScreen.LEVEL_RESULT:
             self._render_result()
+        elif self.current_screen == GameScreen.OPTIMAL_VIEW:
+            self._render_optimal()
         elif self.current_screen == GameScreen.WIN:
             self._render_win()
         elif self.current_screen == GameScreen.LOSE:
@@ -659,8 +711,156 @@ class Game:
         # Next button
         btn_text = "NEXT LEVEL" if self.current_level < self.max_levels else "FINISH"
         self._btn_next.text = btn_text
-        self._btn_next.rect.center = (SCREEN_W // 2, 620)
+        self._btn_next.rect.center = (SCREEN_W // 2, 580)
         self._btn_next.draw(self.screen)
+
+        # Optimal solution button
+        self._btn_optimal.rect.center = (SCREEN_W // 2, 640)
+        self._btn_optimal.draw(self.screen)
+
+    # ─── Optimal Solution Screen ─────────────────────────────────────────
+
+    def _render_optimal(self):
+        self.screen.fill(DARK_BG)
+        layout = self._optimal_layout or {}
+        scores = self._optimal_scores or {}
+
+        # Title
+        font_big = pygame.font.SysFont("segoeui", 32, bold=True)
+        title = font_big.render(f"Optimal Solution — Level {self.current_level}", True, GOLD)
+        title_rect = title.get_rect(center=(SCREEN_W // 2, 36))
+        self.screen.blit(title, title_rect)
+
+        # Total score
+        total = scores.get("total_score", 0)
+        font_score = pygame.font.SysFont("segoeui", 22, bold=True)
+        color = SOFT_GREEN if total >= 0 else SOFT_RED
+        score_surf = font_score.render(f"Optimal Score: {total:.1f}", True, color)
+        score_rect = score_surf.get_rect(center=(SCREEN_W // 2, 72))
+        self.screen.blit(score_surf, score_rect)
+
+        # Draw tables as boxes with guest lists
+        table_names = sorted(layout.keys(), key=lambda t: int(t.split()[-1]))
+        num_tables = len(table_names)
+
+        if num_tables == 0:
+            font_err = pygame.font.SysFont("segoeui", 18)
+            err = font_err.render("No solution computed.", True, SOFT_RED)
+            self.screen.blit(err, err.get_rect(center=(SCREEN_W // 2, 300)))
+        else:
+            # Layout: arrange table boxes in rows
+            if num_tables <= 3:
+                cols = num_tables
+                rows = 1
+            elif num_tables <= 6:
+                cols = 3
+                rows = 2
+            else:
+                cols = 4
+                rows = 2
+
+            box_w = min(280, (SCREEN_W - 60) // cols - 20)
+            box_h = 200
+            start_y = 100
+            total_width = cols * (box_w + 16) - 16
+
+            font_tname = pygame.font.SysFont("segoeui", 16, bold=True)
+            font_guest = pygame.font.SysFont("segoeui", 13)
+            font_tag = pygame.font.SysFont("segoeui", 10)
+
+            # Get zone info for labels
+            from src.renderer import LEVEL_TABLE_LAYOUTS
+            table_layouts = LEVEL_TABLE_LAYOUTS.get(self.current_level, [])
+            zone_labels = {}
+            for idx, tl in enumerate(table_layouts):
+                tname = f"Table {idx + 1}"
+                zone = tl[2] if len(tl) > 2 else "general"
+                zone_labels[tname] = zone
+
+            for idx, tname in enumerate(table_names):
+                row = idx // cols
+                col = idx % cols
+                x = (SCREEN_W - total_width) // 2 + col * (box_w + 16)
+                y = start_y + row * (box_h + 20)
+
+                # Box background
+                zone = zone_labels.get(tname, "general")
+                if "vip_bride" in zone:
+                    box_color = (100, 35, 60)
+                    border_color = SOFT_PINK
+                elif "vip_groom" in zone:
+                    box_color = (80, 40, 70)
+                    border_color = (180, 140, 200)
+                else:
+                    box_color = (60, 28, 45)
+                    border_color = (140, 55, 80)
+
+                pygame.draw.rect(self.screen, box_color, (x, y, box_w, box_h), border_radius=10)
+                pygame.draw.rect(self.screen, border_color, (x, y, box_w, box_h), 2, border_radius=10)
+
+                # Table name + zone tag
+                header_text = tname
+                if "vip_bride" in zone:
+                    header_text += "  ♥ Bride VIP"
+                elif "vip_groom" in zone:
+                    header_text += "  ♥ Groom VIP"
+                header_surf = font_tname.render(header_text, True, GOLD)
+                self.screen.blit(header_surf, (x + 10, y + 8))
+
+                # Separator
+                pygame.draw.line(self.screen, border_color, (x + 8, y + 30), (x + box_w - 8, y + 30), 1)
+
+                # Guest names
+                guests = layout.get(tname, [])
+                gy = y + 36
+                for gi, gname in enumerate(guests):
+                    if gy + 18 > y + box_h - 8:
+                        more = font_guest.render(f"  +{len(guests) - gi} more...", True, TEXT_DIM)
+                        self.screen.blit(more, (x + 10, gy))
+                        break
+                    # Number + name
+                    gsurf = font_guest.render(f"{gi+1}. {gname}", True, TEXT_NAME)
+                    # Truncate if too wide
+                    if gsurf.get_width() > box_w - 20:
+                        display = gname
+                        while len(display) > 3 and font_guest.size(f"{gi+1}. {display}…")[0] > box_w - 20:
+                            display = display[:-1]
+                        gsurf = font_guest.render(f"{gi+1}. {display}…", True, TEXT_NAME)
+                    self.screen.blit(gsurf, (x + 10, gy))
+                    gy += 20
+
+                if not guests:
+                    empty = font_guest.render("(empty)", True, TEXT_DIM)
+                    self.screen.blit(empty, (x + 10, y + 40))
+
+        # Player score comparison
+        player_total = self.level_scores.get("total_score", 0) if self.level_scores else 0
+        opt_total = scores.get("total_score", 0)
+        font_cmp = pygame.font.SysFont("segoeui", 17)
+        player_surf = font_cmp.render(f"Your Score: {player_total:.1f}", True, TEXT_NAME)
+        opt_surf = font_cmp.render(f"Optimal Score: {opt_total:.1f}", True, SOFT_GREEN)
+        diff = opt_total - player_total
+        diff_color = SOFT_GREEN if diff <= 5 else GOLD if diff <= 20 else SOFT_RED
+        diff_surf = font_cmp.render(f"Difference: {diff:.1f}", True, diff_color)
+
+        cmp_y = 540
+        self.screen.blit(player_surf, player_surf.get_rect(center=(SCREEN_W // 2 - 200, cmp_y)))
+        self.screen.blit(opt_surf, opt_surf.get_rect(center=(SCREEN_W // 2, cmp_y)))
+        self.screen.blit(diff_surf, diff_surf.get_rect(center=(SCREEN_W // 2 + 200, cmp_y)))
+
+        # Star rating for player vs optimal
+        font_perf = pygame.font.SysFont("segoeui", 15, bold=True)
+        if opt_total > 0:
+            ratio = player_total / opt_total * 100
+        else:
+            ratio = 100
+        perf_text = f"You achieved {ratio:.0f}% of optimal!"
+        perf_surf = font_perf.render(perf_text, True, diff_color)
+        self.screen.blit(perf_surf, perf_surf.get_rect(center=(SCREEN_W // 2, cmp_y + 30)))
+
+        # Back button
+        self._btn_back_result.rect.center = (SCREEN_W // 2, 620)
+        self._btn_back_result.draw(self.screen)
 
     # ─── Win Screen ──────────────────────────────────────────────────────
 
@@ -740,5 +940,9 @@ class Game:
                 self.screen.fill(BLACK)
 
             # Retry button
-            self._btn_retry.rect.center = (SCREEN_W // 2, SCREEN_H - 80)
+            self._btn_retry.rect.center = (SCREEN_W // 2, SCREEN_H - 110)
             self._btn_retry.draw(self.screen)
+
+            # Optimal solution button
+            self._btn_optimal.rect.center = (SCREEN_W // 2, SCREEN_H - 55)
+            self._btn_optimal.draw(self.screen)
