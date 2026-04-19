@@ -1,1 +1,1 @@
-# Wedding seating game - optimization and scoring engine
+# src/__init__.py
