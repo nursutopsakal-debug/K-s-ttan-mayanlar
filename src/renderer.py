@@ -189,13 +189,28 @@ class TableRenderer:
             border_color = (255, 200, 210) if seated_guests[i] else TABLE_BORDER
             pygame.draw.circle(surface, border_color, (sx, sy), TableRenderer.SEAT_RADIUS, 2)
 
-            # Guest initial or seat number
+            # Guest name or seat number
             if seated_guests[i] is not None:
                 name = seated_guests[i]
+                # Initial inside seat circle
                 init_font = pygame.font.SysFont("segoeui", 13, bold=True)
                 init_surf = init_font.render(name[0].upper(), True, WHITE)
                 init_rect = init_surf.get_rect(center=(sx, sy))
                 surface.blit(init_surf, init_rect)
+
+                # Full name label below the seat
+                name_font = pygame.font.SysFont("segoeui", 10, bold=True)
+                # Truncate long names
+                display_name = name if len(name) <= 12 else name[:11] + "…"
+                name_surf = name_font.render(display_name, True, SOFT_WHITE)
+                # Background pill for readability
+                nw, nh = name_surf.get_size()
+                pill = pygame.Surface((nw + 6, nh + 2), pygame.SRCALPHA)
+                pygame.draw.rect(pill, (40, 15, 30, 180), (0, 0, nw + 6, nh + 2), border_radius=4)
+                pill_rect = pill.get_rect(center=(sx, sy + TableRenderer.SEAT_RADIUS + 10))
+                surface.blit(pill, pill_rect)
+                name_rect = name_surf.get_rect(center=(sx, sy + TableRenderer.SEAT_RADIUS + 10))
+                surface.blit(name_surf, name_rect)
             else:
                 num_font = pygame.font.SysFont("segoeui", 10)
                 num_surf = num_font.render(str(i + 1), True, TEXT_DIM)
@@ -208,10 +223,13 @@ class TableRenderer:
 # ─── Screen Image Loader ──────────────────────────────────────────────────────
 
 class ScreenImages:
-    """Loads and caches screen images (start, win, fail)."""
+    """Loads and caches screen images (start, win, fail). Supports animated GIFs via Pillow."""
 
     def __init__(self):
         self._cache = {}
+        self._gif_frames = {}   # filename -> list of (surface, duration_ms)
+        self._gif_index = {}    # filename -> current frame index
+        self._gif_timer = {}    # filename -> elapsed ms
 
     def _load(self, filename, size=(SCREEN_W, SCREEN_H)):
         if filename in self._cache:
@@ -226,6 +244,61 @@ class ScreenImages:
             return img
         except Exception:
             return None
+
+    def _load_gif_frames(self, filename, size=(SCREEN_W, SCREEN_H)):
+        """Extract all frames from an animated GIF using Pillow."""
+        if filename in self._gif_frames:
+            return self._gif_frames[filename]
+        path = os.path.join(ASSET_DIR, filename)
+        if not os.path.exists(path):
+            return None
+        try:
+            from PIL import Image
+            pil_img = Image.open(path)
+            frames = []
+            try:
+                while True:
+                    frame = pil_img.convert("RGBA")
+                    frame = frame.resize(size, Image.LANCZOS)
+                    raw = frame.tobytes()
+                    surf = pygame.image.fromstring(raw, size, "RGBA").convert_alpha()
+                    duration = pil_img.info.get("duration", 100)
+                    frames.append((surf, max(duration, 30)))
+                    pil_img.seek(pil_img.tell() + 1)
+            except EOFError:
+                pass
+            if frames:
+                self._gif_frames[filename] = frames
+                self._gif_index[filename] = 0
+                self._gif_timer[filename] = 0.0
+                return frames
+        except Exception:
+            pass
+        # Fallback: load as static image
+        static = self._load(filename, size)
+        if static:
+            self._gif_frames[filename] = [(static, 100)]
+            self._gif_index[filename] = 0
+            self._gif_timer[filename] = 0.0
+            return self._gif_frames[filename]
+        return None
+
+    def get_gif_frame(self, filename, dt_ms=0):
+        """Get current frame of an animated GIF, advancing by dt_ms."""
+        frames = self._gif_frames.get(filename)
+        if not frames:
+            frames = self._load_gif_frames(filename)
+        if not frames:
+            return None
+        idx = self._gif_index.get(filename, 0)
+        self._gif_timer[filename] = self._gif_timer.get(filename, 0) + dt_ms
+        _, duration = frames[idx]
+        while self._gif_timer[filename] >= duration:
+            self._gif_timer[filename] -= duration
+            idx = (idx + 1) % len(frames)
+            _, duration = frames[idx]
+        self._gif_index[filename] = idx
+        return frames[idx][0]
 
     @property
     def start_screen(self):

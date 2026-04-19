@@ -1,7 +1,5 @@
 ﻿import pygame
 import sys
-import json
-from pathlib import Path
 
 from src.optimizer import solve
 from src.scoring import evaluate
