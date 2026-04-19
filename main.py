@@ -24,27 +24,28 @@ def pretty_print_score(result):
     for key, value in result.items():
         print(f"{key}: {value}")
 
-
+""
 def main():
     guests_data = load_json("data/guests.json")
     levels_data = load_json("data/levels.json")
 
-    level_data = levels_data["level_1"]
-    guests = guests_data["level_1"]
+    for level_key in ["level_1", "level_2", "level_3"]:
+        if level_key not in levels_data or level_key not in guests_data:
+            print(f"\n{level_key} bulunamadı, atlanıyor.")
+            continue
 
-    print("Running optimizer for Level 1")
-    layout = solve(level_data, guests)
-    pretty_print_layout(layout)
+        level_data = levels_data[level_key]
+        guests = guests_data[level_key]
 
-    sample_layout = {
-        "Table 1": ["Emma", "John", "Sophia", "Isabella", "Mason"],
-        "Table 2": ["Liam", "Olivia", "Noah", "Ava", "Lucas"],
-        "Table 3": ["Charlotte", "Benjamin", "Mia", "Ethan", "Grace"]
-    }
+        print("\n" + "=" * 60)
+        print(f"Running optimizer for {level_key}")
 
-    print("\nEvaluating sample player layout")
-    result = evaluate(sample_layout, level_data, guests)
-    pretty_print_score(result)
+        layout = solve(level_data, guests)
+        pretty_print_layout(layout)
+
+        print("\nEvaluating optimizer layout")
+        result = evaluate(layout, level_data, guests)
+        pretty_print_score(result)
 
 
 if __name__ == "__main__":
