@@ -34,6 +34,13 @@ Constraints:
 import random
 import copy
 import math
+import json
+import subprocess
+import os
+
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_VENV_PYTHON = os.path.join(_BASE_DIR, "..", ".gamspy_venv", "Scripts", "python.exe")
+_SOLVER_SCRIPT = os.path.join(_BASE_DIR, "src", "gamspy_solver.py")
 
 # ─── Table zone properties per level ──────────────────────────────────────────
 # Derived from renderer.py LEVEL_TABLE_LAYOUTS and ZONES positions
@@ -355,9 +362,101 @@ def _neighbor(assignment, guest_names, table_names, capacity):
     return new_assign
 
 
+# ─── GAMSPy MIP Integration ───────────────────────────────────────────────────
+
+def _build_mip_data(guest_names, by_name, table_names, capacity, table_zones):
+    """Build integer-indexed problem data for GAMSPy solver."""
+    n = len(guest_names)
+    m = len(table_names)
+    name_to_idx = {name: idx for idx, name in enumerate(guest_names)}
+
+    # a_it: guest-to-table preference scores
+    a_scores = []
+    for gi, gname in enumerate(guest_names):
+        for ti, tname in enumerate(table_names):
+            props = table_zones.get(tname, {})
+            score = _guest_table_score(by_name[gname], tname, props)
+            if score != 0:
+                a_scores.append([gi, ti, score])
+
+    # b_ij: pairwise compatibility, conflicts, musts
+    b_scores = []
+    conflicts = []
+    musts = []
+
+    for i in range(n):
+        g1 = by_name[guest_names[i]]
+        for j in range(i + 1, n):
+            g2 = by_name[guest_names[j]]
+
+            if _hard_conflict(g1, g2):
+                conflicts.append([i, j])
+            if _must_together(g1, g2):
+                musts.append([i, j])
+
+            score = _pairwise_score(g1, g2)
+            if score != 0:
+                b_scores.append([i, j, score])
+
+    return {
+        "n_guests": n,
+        "n_tables": m,
+        "capacity": capacity,
+        "a_scores": a_scores,
+        "b_scores": b_scores,
+        "conflicts": conflicts,
+        "musts": musts,
+    }
+
+
+def _try_gamspy(guest_names, by_name, table_names, capacity, table_zones):
+    """Try to solve via GAMSPy subprocess. Returns layout dict or None."""
+    if not os.path.exists(_VENV_PYTHON) or not os.path.exists(_SOLVER_SCRIPT):
+        return None
+
+    problem = _build_mip_data(guest_names, by_name, table_names, capacity, table_zones)
+
+    try:
+        result = subprocess.run(
+            [_VENV_PYTHON, _SOLVER_SCRIPT],
+            input=json.dumps(problem),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            return None
+
+        response = json.loads(result.stdout)
+        if response.get("status") != "ok":
+            return None
+
+        # Convert integer indices back to names
+        solution = response["solution"]
+        layout = {tname: [] for tname in table_names}
+        for ti_str, guest_indices in solution.items():
+            ti = int(ti_str)
+            if ti < len(table_names):
+                layout[table_names[ti]] = [guest_names[gi] for gi in guest_indices
+                                           if gi < len(guest_names)]
+
+        # Validate: all guests assigned, no over-capacity
+        assigned = set()
+        for guests in layout.values():
+            for g in guests:
+                assigned.add(g)
+        if assigned != set(guest_names):
+            return None
+
+        return layout
+    except Exception:
+        return None
+
+
 def solve(level_data, guests_data, level_num=1):
     """
-    Find an optimal seating arrangement using simulated annealing.
+    Find an optimal seating arrangement.
+    Tries GAMSPy MIP solver first, falls back to Simulated Annealing.
 
     Args:
         level_data: dict with table_count, seats_per_table, etc.
@@ -375,7 +474,13 @@ def solve(level_data, guests_data, level_num=1):
     table_names = [f"Table {i+1}" for i in range(table_count)]
     table_zones = _TABLE_ZONES.get(level_num, {})
 
-    # --- Phase 1: Greedy initial solution ---
+    # --- Try GAMSPy MIP solver (exact optimization) ---
+    gamspy_layout = _try_gamspy(guest_names, by_name, table_names, capacity, table_zones)
+    if gamspy_layout:
+        return gamspy_layout
+
+    # --- Fallback: Simulated Annealing ---
+    # Phase 1: Greedy initial solution
     assignment = _greedy_initial(guest_names, by_name, table_names, capacity, table_zones)
 
     # --- Phase 2: Simulated Annealing ---
