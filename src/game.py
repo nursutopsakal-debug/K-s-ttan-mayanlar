@@ -17,7 +17,7 @@ from enum import Enum, auto
 
 from src.renderer import HallRenderer, LEVEL_TABLE_LAYOUTS, SCREEN_W, SCREEN_H
 from src.ui import (
-    GuestPanel, GuestCard, TimerDisplay, ScoreDisplay, Button,
+    GuestPanel, GuestCard, TimerDisplay, ScoreDisplay, Button, GuestInfoTooltip,
     GOLD, SOFT_PINK, SOFT_GREEN, SOFT_RED, DARK_BG, PANEL_BG, PANEL_BORDER,
     TEXT_NAME, TEXT_TYPE, TEXT_DIM, WHITE, BLACK, CARD_WIDTH, CARD_HEIGHT
 )
@@ -25,7 +25,7 @@ from src.ui import (
 # ─── Constants ─────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-LEVEL_TIME = 30  # seconds per level
+LEVEL_TIME = 120  # seconds per level (2 minutes)
 PENALTY_SECONDS = 3
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ class Game:
         self.panel = None
         self.timer = None
         self.score_display = None
+        self.tooltip = GuestInfoTooltip()
         self.table_seats = {}      # (table_id, seat_idx) -> guest_name
         self.table_info = []       # list returned by draw_tables for hit-detection
         self.level_scores = None   # result from scoring after level ends
@@ -112,6 +113,7 @@ class Game:
                 "id": gid,
                 "name": g["name"],
                 "type": _tag_to_type(g.get("tags", [])),
+                "guest_data": g,
             })
 
         self.panel = GuestPanel(guests_for_panel)
@@ -120,6 +122,7 @@ class Game:
         self.table_seats = {}
         self.table_info = []
         self.level_scores = None
+        self.tooltip.hide()
         self.current_screen = GameScreen.GAMEPLAY
 
     def _get_level_data(self):
@@ -209,9 +212,20 @@ class Game:
     def _handle_gameplay_event(self, event):
         if not self.panel or not self.timer:
             return
+
+        # Let tooltip handle close-on-click
+        self.tooltip.handle_event(event)
+
         dropped = self.panel.handle_event(event)
         if dropped:
+            self.tooltip.hide()
             self._process_drop(dropped)
+            return
+
+        # Right-click on a card → show tooltip
+        if self.panel.right_clicked_card:
+            mx, my = pygame.mouse.get_pos()
+            self.tooltip.show(self.panel.right_clicked_card, mx, my)
 
     def _process_drop(self, dropped: GuestCard):
         """Try to seat a dropped card at the nearest empty seat."""
@@ -504,6 +518,9 @@ class Game:
         font_lvl = pygame.font.SysFont("segoeui", 13, bold=True)
         lvl_surf = font_lvl.render(f"LEVEL {self.current_level}", True, GOLD)
         self.screen.blit(lvl_surf, (SCREEN_W // 2 - 30, 4))
+
+        # Guest info tooltip (drawn last, on top)
+        self.tooltip.draw(self.screen)
 
     # ─── Level Result Screen ─────────────────────────────────────────────
 

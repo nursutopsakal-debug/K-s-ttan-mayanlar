@@ -43,10 +43,12 @@ CARD_IMG_SIZE = 36
 
 
 def load_guest_image(index, size=(CARD_IMG_SIZE, CARD_IMG_SIZE)):
-    """Load and scale a guest's portrait PNG by panel index (0-based)."""
-    if index < 0 or index >= len(GUEST_IMAGE_FILES):
+    """Load and scale a guest's portrait PNG by panel index (0-based).
+    Wraps around for indices >= 15 using round-robin."""
+    if index < 0:
         return None
-    filename = GUEST_IMAGE_FILES[index]
+    img_index = index % len(GUEST_IMAGE_FILES)
+    filename = GUEST_IMAGE_FILES[img_index]
     path = os.path.join(GUEST_IMG_DIR, filename)
     if not os.path.exists(path):
         return None
@@ -65,11 +67,13 @@ class GuestCard:
 
     _image_cache = {}
 
-    def __init__(self, guest_id: str, name: str, guest_type: str, x: int, y: int, panel_index: int = 0):
+    def __init__(self, guest_id: str, name: str, guest_type: str, x: int, y: int, panel_index: int = 0,
+                 guest_data: dict = None):
         self.guest_id = guest_id
         self.name = name
         self.guest_type = guest_type
         self.panel_index = panel_index
+        self.guest_data = guest_data or {}
         self.rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
         self.dragging = False
         self.placed_table = None
@@ -227,7 +231,8 @@ class GuestPanel:
                 guest_type=g.get("type", "Guest"),
                 x=self.PANEL_X + 10,
                 y=self.PANEL_Y + self.HEADER_H + i * (CARD_HEIGHT + padding),
-                panel_index=i
+                panel_index=i,
+                guest_data=g.get("guest_data", {})
             )
             card._list_index = i
             self.cards.append(card)
@@ -297,8 +302,10 @@ class GuestPanel:
                 card.draw(surface)
 
     def handle_event(self, event: pygame.event.Event) -> GuestCard | None:
-        """Handle events for all cards. Returns the card that was just released (dropped), or None."""
+        """Handle events for all cards. Returns the card that was just released (dropped), or None.
+        Sets self.right_clicked_card if a card was right-clicked (for tooltip)."""
         dropped_card = None
+        self.right_clicked_card = None
 
         # Scroll with mouse wheel inside panel
         if event.type == pygame.MOUSEWHEEL:
@@ -309,6 +316,13 @@ class GuestPanel:
                 self.scroll_offset = max(0, min(self.scroll_offset, self._max_scroll))
                 self._update_card_positions()
                 return None
+
+        # Right-click: show guest info
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            for card in reversed(self.cards):
+                if card.rect.collidepoint(event.pos):
+                    self.right_clicked_card = card
+                    return None
 
         # Process in reverse so top card gets events first
         for card in reversed(self.cards):
@@ -460,4 +474,117 @@ class Button:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.rect.collidepoint(event.pos):
                 return True
+        return False
+
+
+# ─── Guest Info Tooltip ────────────────────────────────────────────────────────
+
+class GuestInfoTooltip:
+    """Popup panel showing guest details (family, preferences, conflicts, tags)."""
+
+    WIDTH = 280
+    PADDING = 12
+    LINE_H = 22
+    HEADER_H = 36
+
+    BG_COLOR = (50, 14, 30, 240)
+    BORDER_COLOR = (180, 80, 110)
+    HEADER_BG = (80, 25, 45)
+
+    def __init__(self):
+        self.visible = False
+        self.card = None  # the GuestCard being inspected
+        self.x = 0
+        self.y = 0
+
+    def show(self, card: GuestCard, mx: int, my: int, screen_w: int = 1280, screen_h: int = 720):
+        """Open tooltip for the given card near the mouse position."""
+        self.card = card
+        self.visible = True
+        self._lines = self._build_lines(card)
+        h = self.HEADER_H + self.PADDING + len(self._lines) * self.LINE_H + self.PADDING
+        # Position: try right of mouse, clamp to screen
+        self.x = min(mx + 12, screen_w - self.WIDTH - 8)
+        self.y = min(my - 10, screen_h - h - 8)
+        self.x = max(4, self.x)
+        self.y = max(4, self.y)
+        self._height = h
+
+    def hide(self):
+        self.visible = False
+        self.card = None
+
+    def _build_lines(self, card: GuestCard):
+        """Build display lines from guest_data."""
+        data = card.guest_data
+        lines = []
+
+        family = data.get("family", "")
+        if family:
+            lines.append(("Family", family, SOFT_PINK))
+
+        if data.get("is_vip"):
+            lines.append(("Status", "★ VIP", GOLD))
+
+        tags = data.get("tags", [])
+        if tags:
+            lines.append(("Tags", ", ".join(tags), TEXT_TYPE))
+
+        preferred = data.get("preferred_with", [])
+        if preferred:
+            lines.append(("Likes", ", ".join(preferred), SOFT_GREEN))
+
+        cannot = data.get("cannot_sit_with", [])
+        if cannot:
+            lines.append(("Conflicts", ", ".join(cannot), SOFT_RED))
+
+        return lines
+
+    def draw(self, surface: pygame.Surface):
+        if not self.visible or not self.card:
+            return
+
+        w = self.WIDTH
+        h = self._height
+
+        # Background
+        bg = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(bg, self.BG_COLOR, (0, 0, w, h), border_radius=10)
+        surface.blit(bg, (self.x, self.y))
+        pygame.draw.rect(surface, self.BORDER_COLOR, (self.x, self.y, w, h), 2, border_radius=10)
+
+        # Header bar
+        pygame.draw.rect(surface, self.HEADER_BG,
+                         (self.x + 2, self.y + 2, w - 4, self.HEADER_H - 2), border_radius=8)
+
+        # Guest name
+        font_name = pygame.font.SysFont("segoeui", 17, bold=True)
+        name_surf = font_name.render(self.card.name, True, GOLD)
+        surface.blit(name_surf, (self.x + self.PADDING, self.y + 8))
+
+        # Type badge
+        font_type = pygame.font.SysFont("segoeui", 11)
+        type_surf = font_type.render(self.card.guest_type, True, TEXT_TYPE)
+        surface.blit(type_surf, (self.x + w - self.PADDING - type_surf.get_width(), self.y + 12))
+
+        # Detail lines
+        font_label = pygame.font.SysFont("segoeui", 12, bold=True)
+        font_value = pygame.font.SysFont("segoeui", 13)
+        y = self.y + self.HEADER_H + self.PADDING
+
+        for label, value, color in self._lines:
+            lbl = font_label.render(f"{label}:", True, TEXT_DIM)
+            surface.blit(lbl, (self.x + self.PADDING, y))
+            val = font_value.render(value, True, color)
+            surface.blit(val, (self.x + self.PADDING + 80, y))
+            y += self.LINE_H
+
+    def handle_event(self, event: pygame.event.Event) -> bool:
+        """Close tooltip on any click outside it. Returns True if consumed."""
+        if not self.visible:
+            return False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            tooltip_rect = pygame.Rect(self.x, self.y, self.WIDTH, self._height)
+            if not tooltip_rect.collidepoint(event.pos):
+                self.hide()
         return False
