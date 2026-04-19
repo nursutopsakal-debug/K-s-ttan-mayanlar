@@ -1,58 +1,50 @@
 import json
 from pathlib import Path
 
-from src.optimizer import solve, evaluate
+from src.optimizer import solve
+from src.scoring import evaluate
 
 
 BASE_DIR = Path(__file__).resolve().parent
 
 
-def load_json(relative_path: str):
+def load_json(relative_path):
     with open(BASE_DIR / relative_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-def pretty_print_result(result: dict):
-    print("\n=== OPTIMIZATION RESULT ===")
-    print("\nLayout:")
-    for table_id, guests in result["layout"].items():
-        print(f"  {table_id}: {guests}")
+def pretty_print_layout(layout):
+    print("\n=== TABLE LAYOUT ===")
+    for table_name, guests in layout.items():
+        print(f"{table_name}: {guests}")
 
-    print("\nScore Components:")
-    for key, value in result["components"].items():
-        print(f"  {key}: {value}")
 
-    print(f"\nTotal Score: {result['total_score']}")
-    print(f"Penalty Trigger: {result['penalty_trigger']}")
-
-    if result["hard_violations"]:
-        print("\nHard Violations:")
-        for v in result["hard_violations"]:
-            print(f"  - {v}")
-    else:
-        print("\nNo hard violations.")
+def pretty_print_score(result):
+    print("\n=== SCORING RESULT ===")
+    for key, value in result.items():
+        print(f"{key}: {value}")
 
 
 def main():
     guests_data = load_json("data/guests.json")
     levels_data = load_json("data/levels.json")
 
-    guests = guests_data["guests"]
-    level_1 = levels_data["levels"][0]
+    level_data = levels_data["level_1"]
+    guests = guests_data["level_1"]
 
-    result = solve(guests, level_1)
-    pretty_print_result(result)
+    print("Running optimizer for Level 1")
+    layout = solve(level_data, guests)
+    pretty_print_layout(layout)
 
-    # örnek player layout test
-    sample_player_layout = {
-        "T1": ["g10", "g11", "g1", "g2", "g3"],
-        "T2": ["g4", "g5", "g6", "g7", "g12"],
-        "T3": ["g8", "g9", "g13", "g14", "g15"]
+    sample_layout = {
+        "Table 1": ["Emma", "John", "Sophia", "Isabella", "Mason"],
+        "Table 2": ["Liam", "Olivia", "Noah", "Ava", "Lucas"],
+        "Table 3": ["Charlotte", "Benjamin", "Mia", "Ethan", "Grace"]
     }
 
-    print("\n=== SAMPLE PLAYER LAYOUT EVALUATION ===")
-    eval_result = evaluate(sample_player_layout, guests, level_1)
-    pretty_print_result(eval_result)
+    print("\nEvaluating sample player layout")
+    result = evaluate(sample_layout, level_data, guests)
+    pretty_print_score(result)
 
 
 if __name__ == "__main__":

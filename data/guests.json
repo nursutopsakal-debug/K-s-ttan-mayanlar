@@ -5,7 +5,7 @@
       "family": "Smith",
       "is_vip": false,
       "preferred_with": ["John", "Sophia"],
-      "cannot_sit_with": [],
+      "cannot_sit_with": ["Lucas"],
       "tags": ["social", "funny"]
     },
     {
@@ -287,38 +287,6 @@
       "family": "Young",
       "is_vip": false,
       "preferred_with": [],
-      "cannot_sit_with": [],
-      "tags": ["quiet"]
-    },
-    {
-      "name": "Rachel",
-      "family": "Hernandez",
-      "is_vip": false,
-      "preferred_with": ["Michael"],
-      "cannot_sit_with": [],
-      "tags": ["social"]
-    },
-    {
-      "name": "Edward",
-      "family": "King",
-      "is_vip": false,
-      "preferred_with": ["Rachel"],
-      "cannot_sit_with": [],
-      "tags": ["quiet", "family_oriented"]
-    },
-    {
-      "name": "Victoria",
-      "family": "Wright",
-      "is_vip": true,
-      "preferred_with": [],
-      "cannot_sit_with": [],
-      "tags": ["social"]
-    },
-    {
-      "name": "Henry",
-      "family": "Lopez",
-      "is_vip": false,
-      "preferred_with": ["Victoria"],
       "cannot_sit_with": [],
       "tags": ["quiet"]
     }

@@ -1,171 +1,132 @@
-from copy import deepcopy
-from itertools import combinations
-from typing import Dict, List, Tuple
+"""
+Optimization engine for wedding seating game.
+Finds good seating arrangements automatically.
+"""
 
-from src.scoring import evaluate_layout
-
-
-def guest_map(guests: List[dict]) -> Dict[str, dict]:
-    return {g["id"]: g for g in guests}
-
-
-def empty_layout(level_data: dict) -> Dict[str, List[str]]:
-    return {table["table_id"]: [] for table in level_data["tables"]}
-
-
-def capacities(level_data: dict) -> Dict[str, int]:
-    return {table["table_id"]: table["capacity"] for table in level_data["tables"]}
-
-
-def can_place(guest_id: str, table_id: str, layout: Dict[str, List[str]], guests: List[dict], level_data: dict) -> bool:
-    gmap = guest_map(guests)
-    caps = capacities(level_data)
-
-    if len(layout[table_id]) >= caps[table_id]:
-        return False
-
-    guest = gmap[guest_id]
-
-    if guest.get("type") == "vip" and table_id not in set(level_data.get("vip_tables", [])):
-        return False
-
-    for seated in layout[table_id]:
-        seated_guest = gmap[seated]
-
-        if guest_id in seated_guest.get("cannot_sit_with", []):
-            return False
-        if seated in guest.get("cannot_sit_with", []):
-            return False
-
-    return True
-
-
-def build_initial_order(guests: List[dict], level_data: dict) -> List[str]:
+def solve(level_data, guests_data):
     """
-    Önce VIP'ler, sonra ex'ler, sonra must_sit_with olanlar, sonra diğerleri
+    Find a good seating arrangement.
+
+    Args:
+        level_data: dict with table_count, seats_per_table, vip_tables, and rules
+        guests_data: list or dict of guests
+
+    Returns:
+        dict of table assignments
     """
-    def priority(g: dict) -> Tuple[int, int, int]:
-        vip_priority = 0 if g["type"] == "vip" else 1
-        ex_priority = 0 if g["type"] == "ex" else 1
-        must_count = -len(g.get("must_sit_with", []))
-        return (vip_priority, ex_priority, must_count)
+    if isinstance(guests_data, dict):
+        guests_list = guests_data
+    else:
+        guests_list = guests_data
 
-    ordered = sorted(guests, key=priority)
-    return [g["id"] for g in ordered if g["id"] in level_data["guest_ids"]]
+    table_count = level_data.get("table_count", 3)
+    seats_per_table = level_data.get("seats_per_table", 8)
+    vip_tables = level_data.get("vip_tables", [])
 
+    layout = _build_empty_tables(table_count)
+    guest_names = _get_guest_names(guests_list)
 
-def greedy_construct(guests: List[dict], level_data: dict) -> Dict[str, List[str]]:
-    gmap = guest_map(guests)
-    layout = empty_layout(level_data)
-    table_ids = [t["table_id"] for t in level_data["tables"]]
-    ordered_guest_ids = build_initial_order(guests, level_data)
-
-    for gid in ordered_guest_ids:
-        best_table = None
-        best_score = None
-
-        for tid in table_ids:
-            if not can_place(gid, tid, layout, guests, level_data):
-                continue
-
-            trial = deepcopy(layout)
-            trial[tid].append(gid)
-            result = evaluate_layout(trial, guests, level_data)
-
-            if best_score is None or result["total_score"] > best_score:
-                best_score = result["total_score"]
-                best_table = tid
-
-        if best_table is not None:
-            layout[best_table].append(gid)
+    for guest_name in _sort_guests_for_placement(guest_names, guests_list):
+        guest = _get_guest(guest_name, guests_list)
+        best_table = _find_best_table(guest_name, guest, layout, guests_list, seats_per_table, vip_tables)
+        if best_table:
+            layout[best_table].append(guest_name)
         else:
-            # zorunlu fallback: ilk boş yer
-            for tid in table_ids:
-                if len(layout[tid]) < capacities(level_data)[tid]:
-                    layout[tid].append(gid)
+            for table_name, guests in layout.items():
+                if len(guests) < seats_per_table:
+                    layout[table_name].append(guest_name)
                     break
 
     return layout
 
 
-def local_search(layout: Dict[str, List[str]], guests: List[dict], level_data: dict, max_iter: int = 100) -> Dict[str, List[str]]:
-    best_layout = deepcopy(layout)
-    best_eval = evaluate_layout(best_layout, guests, level_data)
+def _build_empty_tables(table_count):
+    return {f"Table {i+1}": [] for i in range(table_count)}
 
-    table_ids = list(best_layout.keys())
 
-    improved = True
-    iteration = 0
+def _get_guest_names(guests_data):
+    if isinstance(guests_data, list):
+        return [g["name"] for g in guests_data]
+    return list(guests_data.keys())
 
-    while improved and iteration < max_iter:
-        improved = False
-        iteration += 1
 
-        # 1) Tek kişiyi başka masaya taşı
-        for from_table in table_ids:
-            for guest_id in list(best_layout[from_table]):
-                for to_table in table_ids:
-                    if from_table == to_table:
-                        continue
+def _get_guest(guest_name, guests_data):
+    if isinstance(guests_data, list):
+        for g in guests_data:
+            if g["name"] == guest_name:
+                return g
+    else:
+        return guests_data.get(guest_name)
+    return None
 
-                    trial = deepcopy(best_layout)
-                    trial[from_table].remove(guest_id)
 
-                    if len(trial[to_table]) >= capacities(level_data)[to_table]:
-                        continue
+def _sort_guests_for_placement(guest_names, guests_data):
+    vips = []
+    families = {}
+    others = []
 
-                    trial[to_table].append(guest_id)
-                    result = evaluate_layout(trial, guests, level_data)
-
-                    if result["total_score"] > best_eval["total_score"]:
-                        best_layout = trial
-                        best_eval = result
-                        improved = True
-                        break
-                if improved:
-                    break
-            if improved:
-                break
-
-        if improved:
+    for name in guest_names:
+        guest = _get_guest(name, guests_data)
+        if not guest:
+            others.append(name)
             continue
+        if guest.get("is_vip"):
+            vips.append(name)
+        else:
+            family = guest.get("family", "other")
+            families.setdefault(family, []).append(name)
 
-        # 2) Kişileri swap et
-        for t1, t2 in combinations(table_ids, 2):
-            for g1 in list(best_layout[t1]):
-                for g2 in list(best_layout[t2]):
-                    trial = deepcopy(best_layout)
-                    trial[t1].remove(g1)
-                    trial[t2].remove(g2)
-                    trial[t1].append(g2)
-                    trial[t2].append(g1)
-
-                    result = evaluate_layout(trial, guests, level_data)
-                    if result["total_score"] > best_eval["total_score"]:
-                        best_layout = trial
-                        best_eval = result
-                        improved = True
-                        break
-                if improved:
-                    break
-            if improved:
-                break
-
-    return best_layout
-
-
-def solve(guests: List[dict], level_data: dict) -> dict:
-    """
-    En iyi yerleşimi üretir.
-    """
-    initial_layout = greedy_construct(guests, level_data)
-    improved_layout = local_search(initial_layout, guests, level_data)
-    result = evaluate_layout(improved_layout, guests, level_data)
+    result = vips
+    for family_list in families.values():
+        result.extend(family_list)
+    result.extend(others)
     return result
 
 
-def evaluate(player_layout: Dict[str, List[str]], guests: List[dict], level_data: dict) -> dict:
-    """
-    Oyuncunun yerleşimini puanlar.
-    """
-    return evaluate_layout(player_layout, guests, level_data)
+def _find_best_table(guest_name, guest, layout, guests_data, seats_per_table, vip_tables):
+    best_score = float("-inf")
+    best_table = None
+
+    for table_name, table_guests in layout.items():
+        if len(table_guests) >= seats_per_table:
+            continue
+        if guest.get("is_vip") and table_name not in vip_tables:
+            continue
+        score = _calculate_table_score(guest_name, guest, table_guests, guests_data)
+        if score > best_score:
+            best_score = score
+            best_table = table_name
+
+    return best_table
+
+
+def _calculate_table_score(guest_name, guest, table_guests, guests_data):
+    score = 0
+    preferred = guest.get("preferred_with", [])
+    for other_name in table_guests:
+        if other_name in preferred:
+            score += 20
+    cannot_sit = guest.get("cannot_sit_with", [])
+    for other_name in table_guests:
+        if other_name in cannot_sit:
+            score -= 100
+    family = guest.get("family", "")
+    if family:
+        family_count = sum(
+            1
+            for g in table_guests
+            if _get_guest(g, guests_data) and _get_guest(g, guests_data).get("family") == family
+        )
+        if family_count > 0:
+            score += 15
+    tags = guest.get("tags", [])
+    table_tags = []
+    for other_name in table_guests:
+        other = _get_guest(other_name, guests_data)
+        if other:
+            table_tags.extend(other.get("tags", []))
+    if "social" in tags and "quiet" in table_tags:
+        score += 10
+    if "quiet" in tags and "social" in table_tags:
+        score += 10
+    return score
